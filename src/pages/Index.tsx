@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { 
@@ -13,8 +12,10 @@ import {
   Terminal, 
   GitBranch, 
   ArrowRight, 
-  Languages
+  Languages,
+  PlayCircle
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import Navbar from '@/components/Navbar';
 import CodeBlock from '@/components/CodeBlock';
 import FeatureCard from '@/components/FeatureCard';
@@ -71,6 +72,15 @@ const Index = () => {
               </Button>
               <Button variant="outline" className="bg-transparent border-white/20 hover:bg-white/5 text-white px-8 py-6 text-lg">
                 Learn More <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button 
+                className="bg-[#1EAEDB] hover:bg-[#1EAEDB]/90 text-white px-8 py-6 text-lg animate-pulse" 
+                asChild
+              >
+                <Link to="/try-online" className="flex items-center gap-2">
+                  <PlayCircle className="w-5 h-5" />
+                  Try Now
+                </Link>
               </Button>
             </div>
             
