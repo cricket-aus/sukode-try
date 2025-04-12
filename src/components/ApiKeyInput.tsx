@@ -75,9 +75,7 @@ const ApiKeyInput = ({
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-          <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-          <SelectItem value="gpt-4.5-preview">GPT-4.5 Preview</SelectItem>
+          <SelectItem value="llama-4-scout-17b-16e-instruct">Llama 4 Scout</SelectItem>
           <SelectItem value="llama3.1-8b">Llama 3.1 8B</SelectItem>
         </SelectContent>
       </Select>
