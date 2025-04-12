@@ -15,6 +15,7 @@ export interface CodeGenRequest {
 
 class OpenAIService {
   private apiKey: string | null = null;
+  private selectedModel: string = 'gpt-4o-mini';
 
   setApiKey(key: string) {
     this.apiKey = key;
@@ -30,12 +31,29 @@ class OpenAIService {
     return this.apiKey;
   }
 
-  async generateCode({ prompt, model = 'gpt-4o-mini' }: CodeGenRequest): Promise<string> {
+  setModel(model: string) {
+    this.selectedModel = model;
+    // Store in session storage
+    sessionStorage.setItem('openai_selected_model', model);
+  }
+
+  getModel(): string {
+    const storedModel = sessionStorage.getItem('openai_selected_model');
+    if (storedModel) {
+      this.selectedModel = storedModel;
+    }
+    return this.selectedModel;
+  }
+
+  async generateCode({ prompt, model }: CodeGenRequest): Promise<string> {
     const apiKey = this.getApiKey();
     
     if (!apiKey) {
       throw new Error('API key not set. Please set your OpenAI API key first.');
     }
+
+    // Use provided model or fall back to the selected model
+    const useModel = model || this.getModel();
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -45,7 +63,7 @@ class OpenAIService {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: model,
+          model: useModel,
           messages: [
             {
               role: 'system',

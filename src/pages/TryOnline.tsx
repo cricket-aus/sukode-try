@@ -36,6 +36,7 @@ const TryOnline = () => {
   const [editorValue, setEditorValue] = useState(defaultCode);
   const [isCopied, setIsCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
@@ -45,11 +46,24 @@ const TryOnline = () => {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Initialize the model from session storage if available
+  useEffect(() => {
+    const storedModel = sessionStorage.getItem('openai_selected_model');
+    if (storedModel) {
+      setSelectedModel(storedModel);
+    }
+  }, []);
   
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
       setEditorValue(value);
     }
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    openaiService.setModel(model);
   };
   
   const handleSendMessage = async () => {
@@ -81,7 +95,8 @@ const TryOnline = () => {
       
       // Generate code with OpenAI
       const generatedCode = await openaiService.generateCode({
-        prompt: userMessage.content
+        prompt: userMessage.content,
+        model: selectedModel
       });
       
       // Update editor with generated code
@@ -90,7 +105,7 @@ const TryOnline = () => {
       // Add AI response
       const assistantResponse: ChatMessage = {
         role: 'assistant',
-        content: 'I\'ve generated the code based on your request. You can view it in the editor.',
+        content: `I've generated the code based on your request using ${selectedModel}. You can view it in the editor.`,
         timestamp: new Date()
       };
       
@@ -189,14 +204,15 @@ const TryOnline = () => {
       }
       
       const generatedCode = await openaiService.generateCode({
-        prompt
+        prompt,
+        model: selectedModel
       });
       
       setEditorValue(generatedCode);
       
       const assistantResponse: ChatMessage = {
         role: 'assistant',
-        content: 'I\'ve improved your code. Check the editor to see the changes.',
+        content: `I've improved your code using ${selectedModel}. Check the editor to see the changes.`,
         timestamp: new Date()
       };
       
@@ -233,7 +249,7 @@ const TryOnline = () => {
             Experience how CodeWhisperer can help you write better code. Chat with the AI assistant and see suggestions in the editor.
           </p>
           <div className="max-w-lg mx-auto">
-            <ApiKeyInput />
+            <ApiKeyInput onModelChange={handleModelChange} defaultModel={selectedModel} />
           </div>
         </div>
         
