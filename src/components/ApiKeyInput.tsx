@@ -1,10 +1,9 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Key } from "lucide-react";
-import { openaiService } from '@/services/openaiService';
-import { toast } from '@/hooks/use-toast';
+import { cerebrasService } from "@/services/cerebrasService";
+import { toast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -18,14 +17,17 @@ export interface ApiKeyInputProps {
   defaultModel?: string;
 }
 
-const ApiKeyInput = ({ onModelChange, defaultModel = 'gpt-4o-mini' }: ApiKeyInputProps) => {
-  const [apiKey, setApiKey] = useState('');
+const ApiKeyInput = ({
+  onModelChange,
+  defaultModel = "llama3.1-8b",
+}: ApiKeyInputProps) => {
+  const [apiKey, setApiKey] = useState("");
   const [isKeySet, setIsKeySet] = useState(false);
   const [selectedModel, setSelectedModel] = useState(defaultModel);
 
   useEffect(() => {
     // Check if we already have a key in session storage
-    const savedKey = sessionStorage.getItem('openai_api_key');
+    const savedKey = sessionStorage.getItem("cerebras_api_key");
     if (savedKey) {
       setApiKey(savedKey);
       setIsKeySet(true);
@@ -37,12 +39,12 @@ const ApiKeyInput = ({ onModelChange, defaultModel = 'gpt-4o-mini' }: ApiKeyInpu
       toast({
         title: "Error",
         description: "Please enter an API key",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    openaiService.setApiKey(apiKey.trim());
+    cerebrasService.setApiKey(apiKey.trim());
     setIsKeySet(true);
     toast({
       title: "Success",
@@ -64,7 +66,7 @@ const ApiKeyInput = ({ onModelChange, defaultModel = 'gpt-4o-mini' }: ApiKeyInpu
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder="Enter OpenAI API key"
+          placeholder="Enter Cerebras API key"
           className="bg-white/5 border-white/10"
         />
       </div>
@@ -76,14 +78,19 @@ const ApiKeyInput = ({ onModelChange, defaultModel = 'gpt-4o-mini' }: ApiKeyInpu
           <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
           <SelectItem value="gpt-4o">GPT-4o</SelectItem>
           <SelectItem value="gpt-4.5-preview">GPT-4.5 Preview</SelectItem>
+          <SelectItem value="llama3.1-8b">Llama 3.1 8B</SelectItem>
         </SelectContent>
       </Select>
-      <Button 
+      <Button
         onClick={handleSetApiKey}
         size="sm"
         className={isKeySet ? "bg-green-600 hover:bg-green-700" : ""}
       >
-        {isKeySet ? <Check className="h-4 w-4 mr-1" /> : <Key className="h-4 w-4 mr-1" />}
+        {isKeySet ? (
+          <Check className="h-4 w-4 mr-1" />
+        ) : (
+          <Key className="h-4 w-4 mr-1" />
+        )}
         {isKeySet ? "Set" : "Set Key"}
       </Button>
     </div>
