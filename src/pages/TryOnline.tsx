@@ -3,11 +3,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash, CopyCheck, Download } from "lucide-react";
+import { Send, Trash, CopyCheck, Download, Code } from "lucide-react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import ApiKeyInput from '@/components/ApiKeyInput';
+import { openaiService } from '@/services/openaiService';
+import { toast } from '@/hooks/use-toast';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -25,13 +28,14 @@ const TryOnline = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: 'Hello! I\'m CodeWhisperer powered by Cerebras. What would you like help with today?',
+      content: 'Hello! I\'m CodeWhisperer powered by Cerebras. What would you like help with today? Enter your OpenAI API key to use AI code generation.',
       timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [editorValue, setEditorValue] = useState(defaultCode);
   const [isCopied, setIsCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
@@ -48,7 +52,7 @@ const TryOnline = () => {
     }
   };
   
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputMessage.trim() === '') return;
     
     // Add user message
@@ -60,27 +64,55 @@ const TryOnline = () => {
     
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setIsGenerating(true);
     
-    // Simulate AI response
-    setTimeout(() => {
-      let response = '';
-      
-      if (inputMessage.toLowerCase().includes('suggest') || inputMessage.toLowerCase().includes('complete')) {
-        response = 'I suggest completing your function like this:\n\n```js\nfunction calculateTotal(items) {\n  return items.reduce((total, item) => {\n    return total + (item.price * (1 - item.discount || 0));\n  }, 0);\n}\n```\n\nThis function uses reduce to sum the prices of all items, taking into account any discount.';
-      } else if (inputMessage.toLowerCase().includes('explain') || inputMessage.toLowerCase().includes('how')) {
-        response = 'The code you\'re looking at calculates the total price of items in a shopping cart. It uses the reduce method to iterate through each item and accumulate a total sum. For each item, it multiplies the price by one minus the discount (if any) to get the final price after discount.';
-      } else {
-        response = 'I\'m here to help you write better code. Try asking me to complete or explain code, or I can suggest improvements for your existing code.';
+    try {
+      // Check if API key is set
+      if (!openaiService.getApiKey()) {
+        const assistantResponse: ChatMessage = {
+          role: 'assistant',
+          content: 'Please set your OpenAI API key first using the input field above.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantResponse]);
+        setIsGenerating(false);
+        return;
       }
       
-      const aiMessage: ChatMessage = {
+      // Generate code with OpenAI
+      const generatedCode = await openaiService.generateCode({
+        prompt: userMessage.content
+      });
+      
+      // Update editor with generated code
+      setEditorValue(generatedCode);
+      
+      // Add AI response
+      const assistantResponse: ChatMessage = {
         role: 'assistant',
-        content: response,
+        content: 'I\'ve generated the code based on your request. You can view it in the editor.',
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, aiMessage]);
-    }, 1000);
+      setMessages(prev => [...prev, assistantResponse]);
+    } catch (error) {
+      console.error('Error generating code:', error);
+      // Add error message
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to generate code. Please try again.'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to generate code',
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
   
   const handleClearChat = () => {
@@ -101,6 +133,10 @@ const TryOnline = () => {
   const copyCode = () => {
     navigator.clipboard.writeText(editorValue);
     setIsCopied(true);
+    toast({
+      title: "Success",
+      description: "Code copied to clipboard"
+    });
     setTimeout(() => setIsCopied(false), 2000);
   };
   
@@ -114,6 +150,74 @@ const TryOnline = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast({
+      title: "Success",
+      description: "Code downloaded successfully"
+    });
+  };
+  
+  const generateCodeFromEditor = async () => {
+    if (!editorValue.trim()) {
+      toast({
+        title: "Error",
+        description: "Editor is empty. Please add some code to improve.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const prompt = `Improve or complete this code: \n\n${editorValue}`;
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: prompt,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setIsGenerating(true);
+    
+    try {
+      if (!openaiService.getApiKey()) {
+        const assistantResponse: ChatMessage = {
+          role: 'assistant',
+          content: 'Please set your OpenAI API key first using the input field above.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantResponse]);
+        setIsGenerating(false);
+        return;
+      }
+      
+      const generatedCode = await openaiService.generateCode({
+        prompt
+      });
+      
+      setEditorValue(generatedCode);
+      
+      const assistantResponse: ChatMessage = {
+        role: 'assistant',
+        content: 'I\'ve improved your code. Check the editor to see the changes.',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, assistantResponse]);
+    } catch (error) {
+      console.error('Error generating code:', error);
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to generate code. Please try again.'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to improve code',
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
   
   return (
@@ -125,9 +229,12 @@ const TryOnline = () => {
       <section className="pt-24 pb-20 px-6 relative z-10">
         <div className="max-w-7xl mx-auto text-center mb-10">
           <h1 className="text-3xl md:text-4xl font-bold mb-4">Try CodeWhisperer Online</h1>
-          <p className="text-white/70 max-w-2xl mx-auto">
+          <p className="text-white/70 max-w-2xl mx-auto mb-4">
             Experience how CodeWhisperer can help you write better code. Chat with the AI assistant and see suggestions in the editor.
           </p>
+          <div className="max-w-lg mx-auto">
+            <ApiKeyInput />
+          </div>
         </div>
         
         <div className="max-w-7xl mx-auto glass-morphism rounded-xl overflow-hidden">
@@ -178,6 +285,13 @@ const TryOnline = () => {
                       </div>
                     </div>
                   ))}
+                  
+                  {isGenerating && (
+                    <div className="bg-white/10 rounded-lg p-4 max-w-[80%] animate-pulse">
+                      <div className="font-medium">CodeWhisperer</div>
+                      <div className="mt-1">Generating code...</div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Input */}
@@ -187,12 +301,14 @@ const TryOnline = () => {
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Ask about your code..."
+                      placeholder="Ask for code generation..."
                       className="min-h-[60px] bg-white/5 border-white/10 resize-none"
+                      disabled={isGenerating}
                     />
                     <Button 
                       className="ml-2 bg-cerebras-400 hover:bg-cerebras-500 self-end"
                       onClick={handleSendMessage}
+                      disabled={isGenerating}
                     >
                       <Send className="h-4 w-4" />
                     </Button>
@@ -215,8 +331,19 @@ const TryOnline = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
+                      onClick={generateCodeFromEditor}
+                      className="flex items-center gap-1"
+                      disabled={isGenerating}
+                      title="Improve code with AI"
+                    >
+                      <Code className="h-4 w-4" /> Improve Code
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
                       onClick={copyCode}
                       className="flex items-center gap-1"
+                      disabled={isGenerating}
                     >
                       {isCopied ? (
                         <>
@@ -233,6 +360,7 @@ const TryOnline = () => {
                       size="sm"
                       onClick={downloadCode}
                       className="flex items-center gap-1"
+                      disabled={isGenerating}
                     >
                       <Download className="h-4 w-4" /> Download
                     </Button>
@@ -243,7 +371,7 @@ const TryOnline = () => {
                   <Editor
                     height="100%"
                     defaultLanguage="javascript"
-                    defaultValue={defaultCode}
+                    value={editorValue}
                     onChange={handleEditorChange}
                     theme="vs-dark"
                     options={{
